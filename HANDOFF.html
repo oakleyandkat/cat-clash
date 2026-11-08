@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Cat Clash: deploy handoff for Claude Code</title>
+<style>
+body{font-family:-apple-system,"Segoe UI",Arial,sans-serif;max-width:820px;margin:40px auto;padding:0 28px;color:#221a30;line-height:1.55;font-size:15px}
+h1{color:#4a2a6a;border-bottom:3px solid #ffd23f;padding-bottom:8px}h2{color:#4a2a6a;margin-top:30px}
+code{background:#f3effa;padding:1px 5px;border-radius:4px;font-size:13px}pre{background:#1e1830;color:#f3effa;padding:14px 16px;border-radius:8px;overflow-x:auto}pre code{background:none;color:inherit;padding:0}
+li{margin:4px 0}strong{color:#3a1f58}
+@media print{body{margin:0 auto}pre{white-space:pre-wrap}}
+</style></head><body><h1>Handoff: deploy "Cat Clash: Yarn Wars"</h1>
+<p>Hi Claude Code. This folder is a finished browser game. Please put it online as a public website and give me the link.
+Nothing needs a redesign, and the game logic doesn't need to change. The job is to <strong>deploy it and make sure online multiplayer works on the live site.</strong></p>
+<h2>What's in this folder</h2>
+<pre><code>cat-clash/
+├── public/index.html   ← the whole game (one self-contained HTML file: canvas + JS, no build step)
+├── server.js           ← small Node server: serves public/ AND relays online-multiplayer messages over WebSocket at /ws
+├── package.json        ← one dependency: &quot;ws&quot;. Start command: npm start
+├── .gitignore
+└── HANDOFF.md          ← this file
+</code></pre>
+<ul>
+<li><strong>Node 18+</strong> is required. The server listens on <code>process.env.PORT</code> and falls back to 3000.</li>
+<li><code>GET /catclash-health</code> returns <code>{"catclash":true}</code>. The game calls this when it loads to find out that it's on its own server, then switches online play over to the WebSocket at <code>/ws</code>. Keep this endpoint and that path.</li>
+<li>Without the server, the game still works on one device: 1–4 players can share a keyboard. <strong>Online play needs <code>server.js</code> to be running</strong>, so a static-only host isn't enough on its own.</li>
+</ul>
+<h2>How online play works (so you know what to protect)</h2>
+<ul>
+<li>One player is the <strong>host</strong>: their browser runs the game simulation. Guests send only their inputs.</li>
+<li>Players meet in a "room" named <code>catclash-&lt;4-letter code&gt;</code>. Every client keeps a small "presence" JSON object (≤ ~4 KB). The host's presence carries game snapshots about 30 times a second, and each guest's presence carries its controls.</li>
+<li><code>server.js</code> is only a relay. It forwards each client's presence to the other clients in the same room: <code>join</code>, then <code>presence</code>, then <code>leave</code>. New joiners get a <code>snap</code> of everyone, plus <code>p</code> updates and <code>left</code> notices. It has no game logic.</li>
+<li><strong>The host needs a persistent WebSocket connection.</strong> Serverless or function-only hosting (plain Vercel or Netlify functions) will <em>not</em> work for <code>/ws</code>. Use a host that runs a long-lived Node process.</li>
+</ul>
+<h2>Steps</h2>
+<ol>
+<li>
+<p><strong>Run it locally first</strong>
+   <code>bash
+   npm install
+   npm start          # → http://localhost:3000</code>
+   Open the URL in two browser windows (or one normal and one incognito). In window A choose <strong>Play Online → Host a Game</strong> and pick a cat. In window B choose <strong>Play Online → Join a Game</strong>, type the 4-letter code and pick a cat. Back in A, press <strong>Start</strong>. Moving in B should move B's cat in both windows.</p>
+</li>
+<li>
+<p><strong>Put it on GitHub.</strong> Create a new repo (for example <code>cat-clash</code>), commit everything except <code>node_modules</code>, and push.</p>
+</li>
+<li>
+<p><strong>Deploy it as a Node web service with WebSocket support.</strong> Any of these works. Pick whichever I already have an account on, or ask me:</p>
+</li>
+<li><strong>Render</strong> (free tier is fine): New → Web Service → connect the repo. Build command <code>npm install</code>, start command <code>npm start</code>. Free instances sleep when idle, so the first load can take about 30 s.</li>
+<li><strong>Railway</strong>: New Project → Deploy from GitHub repo. It detects Node and uses <code>npm start</code> automatically.</li>
+<li><strong>Fly.io</strong>: <code>fly launch</code> (accept the Node defaults), then <code>fly deploy</code>. Make sure the internal port matches <code>PORT</code>.</li>
+</ol>
+<p>No environment variables or database are needed.</p>
+<ol>
+<li><strong>Check the live site</strong> (please actually do this, don't assume):</li>
+<li><code>https://&lt;your-app&gt;/catclash-health</code> returns <code>{"catclash":true,...}</code>.</li>
+<li>The game loads, and <strong>1 Player</strong> is playable with the keyboard (WASD / arrows, J or Space claw, K yarn, L special).</li>
+<li><strong>2 Players</strong> on one keyboard works: P1 uses WASD + F/G/E, and P2 uses the arrow keys + / . and Right Shift.</li>
+<li><strong>Online</strong>: host in one browser and join from a second browser or a phone. The guest's cat moves on both screens, and the game goes through to the Yarn Shop after level 1.</li>
+<li>
+<p>The browser console shows no errors.</p>
+</li>
+<li>
+<p><strong>Tell me the public URL.</strong> I'll send it to friends, and they open it, press <strong>Play Online → Join</strong>, and type my code.</p>
+</li>
+</ol>
+<h2>Good to know / possible follow-ups (only if asked)</h2>
+<ul>
+<li>The page loads the "Fredoka" font from Google Fonts. If that's blocked, it falls back to system fonts, which is fine.</li>
+<li>Online rooms only exist while someone is in them. The server keeps no other state and doesn't need a database.</li>
+<li>Rooms are capped at 8 connections and messages at 8 KB in <code>server.js</code>. The game itself allows up to 4 cats per room.</li>
+<li>A custom domain can be added in the hosting provider's settings if I want one later.</li>
+<li>The same game also runs as a Claude artifact. There, online play uses Claude's built-in room feature instead of <code>/ws</code>. Please leave that code path in <code>index.html</code> (<code>wsRoomFactory</code> and the <code>window.claude</code> check) alone.</li>
+</ul></body></html>

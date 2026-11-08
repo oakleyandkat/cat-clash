@@ -1,0 +1,17 @@
+{
+  "name": "cat-clash",
+  "version": "1.0.0",
+  "description": "Cat Clash: Yarn Wars — browser game with local and online multiplayer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
